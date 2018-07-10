@@ -14,7 +14,8 @@ $resourceGroup = New-AzureRmResourceGroup -Name 'sqlserver' -Location 'UK South'
 # Create network, subnet and public IP address
 $subnetConfig = New-AzureRmVirtualNetworkSubnetConfig -Name 'sqlserver-subnet' -AddressPrefix '192.168.1.0/24'
 $vnet = $resourceGroup | New-AzureRmVirtualNetwork -Name 'sqlserver-vnet' -AddressPrefix '192.168.0.0/16' -Subnet $subnetConfig
-$pip = $resourceGroup | New-AzureRmPublicIpAddress -AllocationMethod Static -IdleTimeoutInMinutes 4 -Name 'sqlserver-pip'
+$pip = $resourceGroup | New-AzureRmPublicIpAddress -AllocationMethod Static -IdleTimeoutInMinutes 4 -Name 'sqlserver-pip' `
+    -DomainNameLabel 'anchorloopsqlvm'
 
 # Create network security policy
 $rdpRule = New-AzureRmNetworkSecurityRuleConfig -Name 'AllowRdp' -Protocol 'Tcp' -Direction Inbound -Priority 1000 `
@@ -28,7 +29,7 @@ $nic = $resourceGroup | New-AzureRmNetworkInterface -Name 'sqlserver-nic' -Subne
    -NetworkSecurityGroupId $nsg.Id
 
 # Create storage account and upload SQL Server configuration script to blob storage
-$storageAccount = $resourceGroup | New-AzureRmStorageAccount -StorageAccountName "anchorloopsqlvm" -SkuName 'Standard_LRS' -Kind 'Storage'
+$storageAccount = $resourceGroup | New-AzureRmStorageAccount -StorageAccountName 'anchorloopsqlvm' -SkuName 'Standard_LRS' -Kind 'Storage'
 $storageAccountKey = ($storageAccount | Get-AzureRmStorageAccountKey).Value[0]
 $storageContext = New-AzureStorageContext -StorageAccountName $storageAccount.StorageAccountName -StorageAccountKey $storageAccountKey
 $storageContainer = $storageContext | New-AzureStorageContainer -Name 'sqlserver' -Permission 'Blob'
@@ -51,5 +52,4 @@ $vm = $resourceGroup | New-AzureRmVM -VM $vmConfig
 # Set VM custom script extension to configure SQL Server
 $resourceGroup | `
     Set-AzureRmVMCustomScriptExtension -Name 'SetSqlServerConfig' -VMName 'sqlserver' -StorageAccountName $storageAccount.StorageAccountName -ContainerName $storageContainer.Name -FileName $customScript `
-        -Argument "-VmAdminUsername $VmAdminUsername -VmAdminPassword $VmAdminPassword -SqlLoginUsername $SqlLoginUsername -SqlLoginPassword $SqlLoginPassword -SqlClientIpAddress $SqlClientIpAddress" | `
-    Update-AzureRmVM
+        -Argument "-VmAdminUsername $VmAdminUsername -VmAdminPassword $VmAdminPassword -SqlLoginUsername $SqlLoginUsername -SqlLoginPassword $SqlLoginPassword -SqlClientIpAddress $SqlClientIpAddress"
